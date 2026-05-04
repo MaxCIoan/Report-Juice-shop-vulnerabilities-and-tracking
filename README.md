@@ -308,6 +308,72 @@ docker logs -f <container_id>
 docker exec -it <container_id> sh
 ```
 
+## Feedback API Findings
+
+The feedback API returns JSON with customer feedback records and several useful clues.
+
+Notable response headers:
+
+```text
+Access-Control-Allow-Origin: *
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Feature-Policy: payment 'self'
+X-Recruiting: /#/jobs
+Content-Type: application/json; charset=utf-8
+```
+
+Important observations from the response:
+
+```json
+{
+  "UserId": 21,
+  "id": 4,
+  "comment": "Please send me the juicy chatbot NFT in my wallet at /juicy-nft : \"purpose betray marriage blame crunch monitor spin slide donate sport lift clutch\" (***ereum@juice-sh.op)",
+  "rating": 1
+}
+```
+
+This looks useful for Web3/NFT-related challenges:
+
+```text
+NFT Takeover
+Mint the Honey Pot
+Wallet Depletion
+Web3 Sandbox
+```
+
+The same feedback response also contains an upload clue:
+
+```json
+{
+  "UserId": null,
+  "id": 5,
+  "comment": "Incompetent customer support! Can't even upload photo of broken purchase!<br /><em>Support Team: Sorry, only order confirmation PDFs can be attached to complaints!</em> (anonymous)",
+  "rating": 2
+}
+```
+
+This suggests the complaint upload feature expects order confirmation PDFs and may be the correct place to test:
+
+```text
+Upload Size
+Upload Type
+XXE Data Access
+XXE DoS
+Memory Bomb
+```
+
+Feedback records also show user IDs, masked emails, comments, ratings, and timestamps. This is useful for access-control and API-only testing:
+
+```text
+Forged Feedback
+API-only XSS
+Server-side XSS Protection
+CAPTCHA Bypass
+Zero Stars
+```
+
 ## File Upload Lead
 
 There are upload-related challenges:
@@ -366,6 +432,7 @@ Good next challenges to target:
 | EVID-006 | 2026-05-04 | Crypto source hints | strings | `strings encrypt.pyc%2500.md \| head -80` |
 | EVID-007 | 2026-05-04 | Token sale route | Python decrypt | RSA character lookup decryptor |
 | EVID-008 | 2026-05-04 | Challenge inventory | API | `curl http://localhost:3000/api/Challenges` |
+| EVID-009 | 2026-05-04 | Feedback API clues | API/Burp | Feedback JSON exposed NFT mnemonic and complaint upload hint |
 
 ## Rough Notes
 
@@ -373,6 +440,7 @@ Good next challenges to target:
 - `/ftp` is a real sensitive data source even when the browser UI looks empty.
 - `%2500.md` bypassed extension restrictions on backup files.
 - The token sale route came from decrypted announcement content, not from brute forcing routes.
+- Feedback API response exposed a Web3 mnemonic clue and a complaint upload hint.
 - Upload functionality should be inspected with Burp before assuming it can lead to command execution.
 
 - Possible admin password to de-hash = "0192023a7bbd73250516f069df18b500",
