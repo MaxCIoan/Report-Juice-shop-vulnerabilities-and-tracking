@@ -374,3 +374,5 @@ Good next challenges to target:
 - `%2500.md` bypassed extension restrictions on backup files.
 - The token sale route came from decrypted announcement content, not from brute forcing routes.
 - Upload functionality should be inspected with Burp before assuming it can lead to command execution.
+
+- Possible admin password to de-hash = "0192023a7bbd73250516f069df18b500",
