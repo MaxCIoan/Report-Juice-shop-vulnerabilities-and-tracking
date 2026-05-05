@@ -1194,6 +1194,124 @@ This inventory was captured from `GET /api/Challenges` on the local Juice Shop i
 | 110 | Exposed credentials | 2 | Sensitive Data Exposure | yes | no |
 | 111 | Leaked API Key | 5 | Sensitive Data Exposure | yes | no |
 
+## Per-Challenge Research Map
+
+This section is an informational planning map for the local OWASP Juice Shop lab. It records what can be investigated for each challenge, which tool or technique is likely useful, and what evidence should be captured for the report.
+
+| ID | Challenge | What to Inspect | Tool or Technique | Evidence to Capture |
+| --- | --- | --- | --- | --- |
+| 1 | Password Hash Leak | Authenticated user profile responses and decoded JWT contents. | Burp Repeater, browser DevTools Network, JWT decoder. | Endpoint response or token claim exposing a password hash. |
+| 2 | API-only XSS | REST endpoints that persist user-controlled text without using the frontend. | Burp Repeater or curl against feedback/review APIs. | Request body and rendered stored payload evidence. |
+| 3 | Access Log | Publicly reachable log files, backup paths, and access-log naming patterns. | curl, directory enumeration, source route review. | URL returning server access log content. |
+| 4 | Admin Registration | Registration API fields accepted by backend but not exposed by UI. | Burp intercept, mass-assignment testing. | Registration request containing extra role/admin property. |
+| 5 | Admin Section | Hidden Angular route and role-gated navigation. | DevTools source search, route enumeration. | Admin route URL and screenshot/API proof of access. |
+| 6 | Arbitrary File Write | Vulnerable dependency behavior and write-capable endpoints. | Source review, package/version research, controlled file-write test. | Request demonstrating overwrite of `/ftp/legal.md`. |
+| 7 | Bjoern's Favorite Pet | Security question answer from OSINT or older public profile data. | Web search, Juice Shop docs/media clues. | Reset-password request using original answer. |
+| 8 | Blockchain Hype | Encrypted announcement and hidden Token Sale route. | FTP enumeration, strings, Python crypto analysis. | Decrypted announcement text and `/#/tokensale-ico-ea` route. |
+| 9 | NFT Takeover | Leaked mnemonic/private key path and `/juicy-nft` page. | Feedback API review, wallet key derivation, DevTools. | Seed phrase source and derived private key authentication result. |
+| 10 | Mint the Honey Pot | Web3 bee collection flow and minting validation. | Browser DevTools, Web3 route inspection, traffic capture. | Requests/events showing collected BEEs and mint action. |
+| 11 | Wallet Depletion | Deposit/withdraw transaction logic and arithmetic validation. | Burp Repeater, DevTools, Web3 wallet route review. | Request sequence withdrawing more than deposited. |
+| 12 | Web3 Sandbox | Hidden Angular route for contract sandbox. | JS route grep, browser route access. | `/#/web3-sandbox` route screenshot. |
+| 13 | Blocked RCE DoS | Insecure deserialization path and hardened blocking behavior. | Source review, dependency review, non-destructive payload analysis. | Evidence showing blocked/handled RCE attempt without crashing lab. |
+| 14 | CAPTCHA Bypass | CAPTCHA generation and feedback submission timing. | Burp Repeater, curl loop, `GET /rest/captcha/`. | Ten feedback submissions inside the time window. |
+| 15 | Change Bender's Password | Password-change endpoint authorization rules. | Burp Repeater with account switching, JWT/session comparison. | Request changing Bender password without SQLi or reset flow. |
+| 16 | Christmas Special | Product availability and order/cart SQLi or hidden product ID. | SQLi testing, product API review, basket/order API. | Basket/order request containing Christmas 2014 product. |
+| 17 | CSP Bypass | Legacy page that reflects username under weaker CSP handling. | DevTools, route/source search, controlled XSS test. | Alert payload executing on the legacy page. |
+| 18 | Client-side XSS Protection | Frontend validation that can be bypassed via direct API call. | Burp Repeater, feedback/review API testing. | Stored payload accepted despite UI blocking it. |
+| 19 | Confidential Document | Exposed `/ftp` directory contents. | Browser, curl, directory listing. | Downloaded confidential document URL/content. |
+| 20 | DOM XSS | Search route DOM rendering of URL input. | Browser URL encoding, DevTools console. | `/#/search?q=...` route triggering alert. |
+| 21 | Database Schema | SQL injection path exposing SQLite schema metadata. | Login/search SQLi, UNION queries, Burp Repeater. | Extracted table/schema names from database metadata. |
+| 22 | Deprecated Interface | Old B2B or XML upload/import endpoint. | Route/source search, endpoint probing. | Deprecated endpoint request and accepted response. |
+| 23 | Easter Egg | Hidden route/file or suspicious static asset. | Source grep, `/ftp` review, route enumeration. | URL or asset revealing the easter egg. |
+| 24 | Email Leak | Cross-origin or XS-leak behavior exposing email data. | Browser origin tests, DevTools Network, CORS review. | Cross-domain response or side-channel evidence. |
+| 25 | Empty User Registration | Backend validation mismatch for empty credentials. | Burp intercept on `/api/Users/`. | Registration request with empty email/password accepted. |
+| 26 | Ephemeral Accountant | Login SQLi that impersonates a non-existing accountant user. | Login-form SQLi, Burp Repeater. | Auth response/session for `acc0unt4nt@juice-sh.op`. |
+| 27 | Error Handling | Input that triggers unhandled or verbose server error. | Browser, Burp, malformed route/API request. | Error page/JSON stack trace. |
+| 28 | Expired Coupon | Coupon validation date logic and campaign codes. | Coupon files, Burp Repeater, system time/request testing. | Expired coupon accepted at checkout. |
+| 29 | Extra Language | Translation loading mechanism and hidden language file. | DevTools Network, i18n asset enumeration. | Request loading the extra language. |
+| 30 | Five-Star Feedback | Admin feedback management and insecure delete/update access. | Admin UI, Burp Repeater, feedback API. | Removal/update of all five-star feedback entries. |
+| 31 | Forged Coupon | Coupon code format, signing/encryption, and old backup files. | Backup review, crypto analysis, Python scripting. | Forged coupon with at least 80 percent discount. |
+| 32 | Forged Feedback | Feedback API trusts user identity fields. | Burp Repeater, parameter tampering. | Feedback posted under another user's identity. |
+| 33 | Forged Review | Product review API authorization gaps. | Burp Repeater, product review endpoints. | Review created/edited as another user. |
+| 34 | Forged Signed JWT | JWT library weakness around RSA signature validation. | JWT tooling, library/CVE research, token comparison. | Accepted token for `rsa_lord@juice-sh.op`. |
+| 35 | Forgotten Developer Backup | Backup files reachable through `/ftp` with bypass. | FTP listing, poison-null-byte style filename testing. | Developer backup file download. |
+| 36 | Forgotten Sales Backup | Sales backup reachable through `/ftp` with bypass. | FTP listing, curl download, extension bypass. | Sales backup file download. |
+| 37 | Frontend Typosquatting | Frontend dependencies with suspicious package names. | `package.json`, bundled JS search, npm package review. | Exact typosquatted package name reported via contact form. |
+| 38 | GDPR Data Erasure | Erased account still authenticates or remains partially present. | Login testing, deleted-user API/state review. | Successful login with erased Chris account. |
+| 39 | GDPR Data Theft | Data export endpoints with missing ownership checks. | Burp Repeater, IDOR testing. | Download/export of another user's personal data. |
+| 40 | HTTP-Header XSS | Headers persisted into logs/UI without sanitization. | Burp Repeater, custom header injection. | Stored payload from HTTP header rendered in app. |
+| 41 | Imaginary Challenge | Continue-code logic and non-existing challenge ID handling. | Continue-code analysis, hashids/code review. | Challenge #999 marked through crafted continue code. |
+| 42 | Leaked Access Logs | Public internet leak containing credentials. | OSINT, search engines, challenge hints. | Original leaked log and matching account login. |
+| 43 | Leaked Unsafe Product | OSINT leak identifying removed unsafe product ingredients. | Paste/leak search, product clue research. | Contact-form report with unsafe product/ingredients. |
+| 44 | Legacy Typosquatting | Historical vulnerable dependency in older snapshot. | Version history, package lock review, OSINT. | Exact legacy typosquatting culprit submitted. |
+| 45 | Login Admin | SQL injection in login email field. | Login form, Burp Repeater, SQLi syntax. | Admin auth response/session. |
+| 46 | Login Amy | Password clue based on padded final-note pattern. | OSINT clue interpretation, targeted login attempt. | Amy login with original credentials. |
+| 47 | Login Bender | Targeted SQL injection using known email. | Login form, Burp Repeater. | Auth response for Bender account. |
+| 48 | Login Bjoern | OAuth/local auth implementation weakness. | Source review, OAuth flow analysis. | Bjoern Gmail account login without password reset or SQLi. |
+| 49 | Login Jim | Targeted SQL injection using Jim's email. | Login form, Burp Repeater. | Auth response for Jim account. |
+| 50 | Login MC SafeSearch | OSINT credentials from public media/persona clues. | Web search, username discovery. | Login request with original credentials. |
+| 51 | Login Support Team | Hardcoded/default support credentials. | Source review, brute-force with known small wordlist. | Support team login request/response. |
+| 52 | Manipulate Basket | Basket ownership and IDOR behavior. | Burp Repeater, basket ID tampering. | Another user's basket modified. |
+| 53 | Misplaced Signature File | Exposed SIEM/Sigma signature file. | Static file enumeration, source grep. | URL returning misplaced signature content. |
+| 54 | Multiple Likes | Review-like endpoint race/timing issue. | Burp Intruder/Repeater, parallel requests. | Same user liking one review at least three times. |
+| 55 | Nested Easter Egg | Advanced decoding/crypto on first easter egg. | File analysis, stego/crypto tools. | Real nested easter egg content. |
+| 56 | NoSQL DoS | NoSQL injection sleep/timing behavior. | Burp Repeater, non-destructive timing payload. | Measurable delayed response from server. |
+| 57 | NoSQL Exfiltration | NoSQL query manipulation in order retrieval. | Burp Repeater, parameter tampering. | Orders returned beyond current user scope. |
+| 58 | NoSQL Manipulation | Bulk update behavior in product reviews. | Burp Repeater, NoSQL operator testing. | Multiple reviews updated from one request. |
+| 59 | Outdated Allowlist | Old crypto redirect allowlist entries left in bundled code. | JS grep, `/redirect?to=` testing. | Redirect through app to stale crypto address. |
+| 60 | Password Strength | Weak admin password without SQLi. | Targeted password guessing, hash cracking. | Admin login using weak password. |
+| 61 | Payback Time | Negative quantity/price/order validation. | Burp Repeater, basket/order API tampering. | Order total resulting in account credit. |
+| 62 | Premium Paywall | Hidden premium route/key in client or static files. | Source grep, route/static asset review. | Access to paywalled premium content without payment. |
+| 63 | Privacy Policy | Privacy policy route/content. | Browser navigation. | Privacy policy viewed. |
+| 64 | Privacy Policy Inspection | Hidden proof phrase or inspect-only clue in policy. | DevTools Elements/source inspection. | Proof value submitted or challenge completion. |
+| 65 | Product Tampering | Product API missing admin-only enforcement. | Burp Repeater, product endpoint update. | O-Saft description link changed to required URL. |
+| 66 | Reflected XSS | Reflected route parameter or redirect/search field. | Browser encoded payload, DevTools. | Alert payload reflected and executed. |
+| 67 | Repetitive Registration | Repeat-password client validation bypass. | Burp intercept, API registration. | Registration with empty/different repeat password. |
+| 68 | Reset Bender's Password | Security question OSINT answer for Bender. | OSINT, reset-password endpoint. | Password reset request accepted for Bender. |
+| 69 | Reset Bjoern's Password | Internal account security question answer. | OSINT, reset-password endpoint. | Password reset request accepted for Bjoern. |
+| 70 | Reset Jim's Password | Security answer found from Jim's public clues. | OSINT, reset-password endpoint. | Password reset request accepted for Jim. |
+| 71 | Reset Morty's Password | Obfuscated pet/security answer. | Hint analysis, targeted answer testing. | Morty reset accepted with decoded answer. |
+| 72 | Retrieve Blueprint | Static file/route for product blueprint. | Directory/source search, product asset review. | Blueprint file downloaded. |
+| 73 | SSRF | Server-side URL fetch or image/import feature. | Source review, Burp Repeater, localhost resource request. | Hidden internal resource returned through server. |
+| 74 | SSTi | Template injection in a server-rendered feature. | Source review, controlled template expression testing. | Server-side template expression execution proof. |
+| 75 | Score Board | Hidden route. | DevTools route search, direct navigation. | `/#/score-board` access. |
+| 76 | Security Policy | Responsible disclosure/security policy file or route. | Browser/static file search. | Security policy viewed. |
+| 77 | Server-side XSS Protection | Feedback sanitization bypass on server side. | Burp Repeater, payload mutation. | Stored XSS bypassing server-side filter. |
+| 78 | Steganography | Hidden character in product image/media. | Image inspection, stego tools, metadata review. | Exact hidden character name reported. |
+| 79 | Successful RCE DoS | Non-infinite command execution causing temporary occupation. | Source review, safe timing test in lab only. | Server busy evidence without infinite loop. |
+| 80 | Supply Chain Attack | Public vulnerability affecting developer credentials. | OSINT, advisory/CVE search. | Original report/CVE submitted via contact form. |
+| 81 | Two Factor Authentication | TOTP secret storage or 2FA flow weakness. | API/source review, TOTP tooling. | Valid 2FA code for `wurstbrot`. |
+| 82 | Unsigned JWT | JWT algorithm handling weakness. | JWT tooling, token header/signature analysis. | Accepted unsigned token for `jwtn3d@juice-sh.op`. |
+| 83 | Upload Size | Upload size validation mismatch. | Burp Repeater, generated file over 100 kB. | Oversized upload accepted. |
+| 84 | Upload Type | Extension/content-type validation mismatch. | Burp Repeater, filename/content-type tampering. | Non-pdf/non-zip upload accepted. |
+| 85 | User Credentials | SQLi UNION query against user table. | Burp Repeater, SQLi extraction. | List of user emails/password hashes. |
+| 86 | Video XSS | Promo video metadata/source field injection. | Source/API review, payload in video data. | Payload embedded and executed from promo video. |
+| 87 | View Basket | Basket IDOR through URL/API ID. | Browser URL change, Burp Repeater. | Another user's basket visible. |
+| 88 | Vulnerable Library | Client/server dependency version with known CVE. | package lock review, `npm audit`, OSINT. | Exact library name/version submitted. |
+| 89 | Weird Crypto | Weak/inappropriate crypto algorithm or library usage. | Source review, dependency review. | Contact report naming the weak crypto choice. |
+| 90 | Allowlist Bypass | Open redirect allowlist parsing edge case. | Burp Repeater, URL parser tricks. | Redirect to disallowed destination through app. |
+| 91 | XXE Data Access | XML upload/parser endpoint reading local files. | Burp Repeater, XML parser behavior review. | `/etc/passwd` or Windows file content returned. |
+| 92 | XXE DoS | XML entity expansion behavior. | Safe lab-only XML parser test. | Delayed/heavy XML response evidence. |
+| 93 | Memory Bomb | YAML/entity deserialization memory exhaustion. | Upload endpoint review, safe lab-only bomb test. | Endpoint accepts hazardous structured input. |
+| 94 | Zero Stars | Feedback rating validation mismatch. | Burp Repeater, feedback API. | Feedback accepted with zero rating. |
+| 95 | Missing Encoding | File path containing special characters. | Browser URL encoding, static file retrieval. | Bjoern cat photo retrieved. |
+| 96 | Cross-Site Imaging | SVG/image URL injection into delivery labels. | Burp Repeater, order/address/delivery data tampering. | External cat image rendered on delivery boxes. |
+| 97 | Exposed Metrics | Prometheus metrics endpoint. | Browser/curl endpoint discovery. | Metrics endpoint response. |
+| 98 | Deluxe Fraud | Membership payment/status validation. | Burp Repeater, checkout/membership API review. | Deluxe membership obtained without valid payment. |
+| 99 | CSRF | State-changing request without CSRF protection. | External HTML form, browser session. | Cross-origin request changing user name. |
+| 100 | Bonus Payload | Required SoundCloud iframe in DOM XSS route. | URL encoding, browser search route. | Bonus iframe rendered/executed in search route. |
+| 101 | Reset Uvogin's Password | OSINT answer for Uvogin's security question. | Web search, reset-password endpoint. | Password reset request accepted. |
+| 102 | Meta Geo Stalking | Photo metadata reveals security answer. | EXIF tools, Photo Wall review. | GPS/location metadata and reset proof. |
+| 103 | Visual Geo Stalking | Visual landmarks reveal security answer. | Image inspection, map/OSINT comparison. | Location answer and reset proof. |
+| 104 | Kill Chatbot | Chatbot implementation/storage weakness. | Source/API review, chatbot endpoint testing. | Chatbot permanently disabled. |
+| 105 | Poison Null Byte | Filename extension filter bypass. | curl, encoded `%2500` path testing. | Restricted file downloaded through null-byte bypass. |
+| 106 | Bully Chatbot | Chatbot prompt/interaction for coupon. | Browser chatbot, conversation testing. | Coupon code returned by support chatbot. |
+| 107 | Local File Read | Vulnerable local file read dependency/endpoint. | Source review, safe file-read proof in lab. | Arbitrary local file content returned. |
+| 108 | Mass Dispel | Notification UI convenience action. | DevTools Elements, browser UI after restart. | Multiple solved notifications closed at once. |
+| 109 | Security Advisory | Known affected advisory and checksum proof. | CSAF/advisory search, contact form. | Suitable checksum submitted. |
+| 110 | Exposed credentials | Hardcoded client-side testing credentials. | Frontend JS grep, DevTools source search. | Exact exposed credential pair and login proof. |
+| 111 | Leaked API Key | Client/server static code containing API key. | Source grep, bundled JS/static asset review. | Exact leaked API key submitted. |
+
 ## Rough Notes
 
 - Unknown Angular routes return HTTP `200` with the app shell, so directory brute forcing needs response-length filtering.
