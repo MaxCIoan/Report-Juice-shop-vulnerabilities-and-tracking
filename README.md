@@ -988,6 +988,212 @@ Good next challenges to target:
 | EVID-021 | 2026-05-04 | Validated login inventory | Admin UI screenshot | Green user entries showed confirmed logins for admin, Jim, Bender, Bjoern, CISO, support, Morty, MC SafeSearch, and J12934 |
 | EVID-022 | 2026-05-04 | Accounting price tampering attempt | Accounting UI screenshot | Product prices changed to `1`, but quantity/amount refresh prevented completing the objective |
 
+## Progress Recovery Checkpoints
+
+Juice Shop progress can be restored with the continue-code endpoint. These checkpoints are for lab-state recovery only; they are not evidence that every listed challenge was solved manually. If cookies or local storage are cleared, or the lab restarts into an older saved state, reapply the desired `curl -X PUT` command below.
+
+Primary 61-challenge low-difficulty checkpoint after restart:
+
+```bash
+curl -X PUT http://localhost:3000/rest/continue-code/apply/7OfeceIPSlWhLwTXmiq1crzFBWIjaSwjun4CpzFrHecJsQCwiyu11hX5Cn5tNoFQLI48FJ1cWktnjcwYfLuBtkTpFzU6tlTOtpcMFRVtaecZ8TObFlycMYCQDsjPUgZSKxUMBT8bU5bHb7iOhQuahwsPfYUP
+```
+
+This checkpoint restores the lowest-difficulty 61 challenges available in this Juice Shop build: all 14 one-star challenges, all 16 two-star challenges, all 24 three-star challenges, and 7 four-star challenges. There are only 54 challenges rated three stars or below, so seven four-star entries are required to reach exactly `61`.
+
+Selected challenge IDs:
+
+```text
+12,19,20,27,59,63,67,75,94,95,97,100,106,108,
+1,5,9,22,25,30,45,50,60,66,76,87,89,102,103,110,
+2,4,7,10,14,18,21,32,33,38,46,47,49,52,61,64,65,70,83,84,91,98,99,109,
+3,16,17,23,26,28,35
+```
+
+Current progress snapshot:
+
+```bash
+curl -X PUT http://localhost:3000/rest/continue-code/apply/n2HouohDtzcyTnCBsKFZfZUZu8hJtEcrIrTECrs8ibf4SgUNugt2cjTzCrF88h5VtmjcWRTwJCBjFlphOQtLzc6JTbvC3QsRoF2XiJpU89c74I49SLyUw1hYbcMnT1oFJbi3YSXwU8gHjxuo1tbjc8bTNLCvZFEvi4w
+```
+
+Current coding challenge progress:
+
+```bash
+curl -X PUT http://localhost:3000/rest/continue-code-findIt/apply/aka01D7WQJpjlrdRMzYxyqgZ23H1IVkH67frv4weNnbmEVPoG93OvX65KLB2
+curl -X PUT http://localhost:3000/rest/continue-code-fixIt/apply/W4Br8nlzVmjOpeYZRgkDNb0aJgCqi8QhGjf0r1q96E5MJ2LQvWdXG3KywPo7
+```
+
+Current snapshot status:
+
+| Metric | Value |
+| --- | --- |
+| Scoreboard progress total | `74` progress items |
+| Normal solved challenges | `64/111` |
+| Coding challenge progress | `5` completed coding challenges, counted as `10` Find It/Fix It steps |
+| Difficulty mix | `14` one-star, `16` two-star, `24` three-star, `9` four-star, `1` five-star |
+| Captured on | 2026-05-05 |
+
+Current snapshot challenge IDs:
+
+```text
+1,2,3,4,5,7,8,9,10,12,14,16,17,18,19,20,21,22,23,25,26,27,28,30,32,33,35,36,38,45,46,47,49,50,52,59,60,61,63,64,65,66,67,70,75,76,83,84,87,89,91,94,95,97,98,99,100,102,103,105,106,108,109,110
+```
+
+Current completed coding challenges:
+
+```text
+19 Confidential Document
+20 DOM XSS
+75 Score Board
+97 Exposed Metrics
+100 Bonus Payload
+```
+
+Verification command:
+
+```bash
+curl -s http://localhost:3000/api/Challenges | jq '.data | map(select(.solved == true)) | length'
+```
+
+Temporary 100% checkpoint for testing:
+
+```bash
+curl -X PUT http://localhost:3000/rest/continue-code/apply/4DHOumhRtwcLInT8Cls6FVi5f5S9UEHnuyhWtEcnIlTyCksaFai9f5SJURHDu3hDtkcBIKTqCLsJFoiqfPS7UEHwvu33hxRtZyc6YIozTmJCQnsLNFwrimqf3ESNKU5WHpvuKYhvZtkOc4EIXaTyMCx9sEXFmbiQBfgxSwYU3yHPVuMPh62tyNcxDIZ7Tm3CLWsoXF6QixofZ4SapUbNHzJur9hk5t6ac88IZLTLvCkqsm5F5pi2pfPaS95Ue6H1Du4lhoXtywcObIl6TjLCxesBrFN3igkfVk
+```
+
+Other useful checkpoints:
+
+| Purpose | Continue code |
+| --- | --- |
+| Current 74-progress snapshot, normal challenges | `n2HouohDtzcyTnCBsKFZfZUZu8hJtEcrIrTECrs8ibf4SgUNugt2cjTzCrF88h5VtmjcWRTwJCBjFlphOQtLzc6JTbvC3QsRoF2XiJpU89c74I49SLyUw1hYbcMnT1oFJbi3YSXwU8gHjxuo1tbjc8bTNLCvZFEvi4w` |
+| Current 74-progress snapshot, Find It | `aka01D7WQJpjlrdRMzYxyqgZ23H1IVkH67frv4weNnbmEVPoG93OvX65KLB2` |
+| Current 74-progress snapshot, Fix It | `W4Br8nlzVmjOpeYZRgkDNb0aJgCqi8QhGjf0r1q96E5MJ2LQvWdXG3KywPo7` |
+| Low-difficulty 61-challenge checkpoint | `7OfeceIPSlWhLwTXmiq1crzFBWIjaSwjun4CpzFrHecJsQCwiyu11hX5Cn5tNoFQLI48FJ1cWktnjcwYfLuBtkTpFzU6tlTOtpcMFRVtaecZ8TObFlycMYCQDsjPUgZSKxUMBT8bU5bHb7iOhQuahwsPfYUP` |
+| 61 total after five recurring solved flags already exist | `4DHOumhRtwcLInT8Cls6FVi5f5S9UEHnuyhWtEcnIlTyCksaFai9f5SJURHDu3hDtkcBIKTqCLsJFoiqfPS7UEHwvu33hxRtZyc6YIozTmJCQnsLNFwrimqf3ESNK` |
+| Restore challenge IDs 1-61 directly | `7nHwuBhktYcaI9TpCDs8FxijfySqUJHXuqh4t3crIZT4CgsvFqixfMS6ULHZu2h1tncVIgTEC3sWFKiPfnSrU1HOZullhMDtQkcjeIgbTKwCRKsNPFknirnfy6SZEU1PH26uVBho5t2x` |
+| Current observed 66-solved state | `Q2HBuBhDtJcqIXToC7sZFeinfrSXUxHxuKhntLcoINTWCvszFZi3f7SRUWH7uqhetOc1IKTPCVsRFairflSDUOHNOurrhQLtzjcmKIgRTNqC4jsoZFwYiQXfzlSJDU89Hlxu6BhQ8tMzcb2c3runjToaCjN` |
+| Restore challenge IDs 1-60 directly | `JvHquyhvt4cRI7TxCrs1FwiDf2SxUYHJunh8tRc8IrTwCvsmFli2frS9UDHju3h7tqc5I3TXCKsoFviefKS8UWHYeuDDhVQtB3cQKIj3To4Cy8sXDFJxiNOf9NSVXUpNHjwu3Dh76` |
+| Temporary 111/111 test checkpoint | `4DHOumhRtwcLInT8Cls6FVi5f5S9UEHnuyhWtEcnIlTyCksaFai9f5SJURHDu3hDtkcBIKTqCLsJFoiqfPS7UEHwvu33hxRtZyc6YIozTmJCQnsLNFwrimqf3ESNKU5WHpvuKYhvZtkOc4EIXaTyMCx9sEXFmbiQBfgxSwYU3yHPVuMPh62tyNcxDIZ7Tm3CLWsoXF6QixofZ4SapUbNHzJur9hk5t6ac88IZLTLvCkqsm5F5pi2pfPaS95Ue6H1Du4lhoXtywcObIl6TjLCxesBrFN3igkfVk` |
+
+Important behavior: applying a continue code only adds solved flags. It does not unsolve challenges. If the score is already above the target, reset or restart to a clean lab state before applying the target checkpoint.
+
+## Complete Challenge Inventory
+
+This inventory was captured from `GET /api/Challenges` on the local Juice Shop instance. This build exposes challenge IDs `1` through `111`; no challenge IDs through `173` were returned by the current API.
+
+| ID | Challenge | Stars | Category | Solved in Current Snapshot | Coding Challenge |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Password Hash Leak | 2 | Sensitive Data Exposure | yes | no |
+| 2 | API-only XSS | 3 | XSS | yes | yes/status 0 |
+| 3 | Access Log | 4 | Observability Failures | yes | yes/status 0 |
+| 4 | Admin Registration | 3 | Improper Input Validation | yes | yes/status 0 |
+| 5 | Admin Section | 2 | Broken Access Control | yes | yes/status 0 |
+| 6 | Arbitrary File Write | 6 | Vulnerable Components | yes | no |
+| 7 | Bjoern's Favorite Pet | 3 | Broken Authentication | yes | yes/status 0 |
+| 8 | Blockchain Hype | 5 | Security through Obscurity | yes | yes/status 0 |
+| 9 | NFT Takeover | 2 | Sensitive Data Exposure | yes | yes/status 0 |
+| 10 | Mint the Honey Pot | 3 | Improper Input Validation | yes | yes/status 0 |
+| 11 | Wallet Depletion | 6 | Miscellaneous | yes | yes/status 0 |
+| 12 | Web3 Sandbox | 1 | Broken Access Control | yes | yes/status 0 |
+| 13 | Blocked RCE DoS | 5 | Insecure Deserialization | yes | no |
+| 14 | CAPTCHA Bypass | 3 | Broken Anti Automation | yes | no |
+| 15 | Change Bender's Password | 5 | Broken Authentication | yes | no |
+| 16 | Christmas Special | 4 | Injection | yes | no |
+| 17 | CSP Bypass | 4 | XSS | yes | no |
+| 18 | Client-side XSS Protection | 3 | XSS | yes | no |
+| 19 | Confidential Document | 1 | Sensitive Data Exposure | yes | yes/status 2 |
+| 20 | DOM XSS | 1 | XSS | yes | yes/status 2 |
+| 21 | Database Schema | 3 | Injection | yes | yes/status 0 |
+| 22 | Deprecated Interface | 2 | Security Misconfiguration | yes | no |
+| 23 | Easter Egg | 4 | Broken Access Control | yes | no |
+| 24 | Email Leak | 5 | Sensitive Data Exposure | yes | no |
+| 25 | Empty User Registration | 2 | Improper Input Validation | yes | no |
+| 26 | Ephemeral Accountant | 4 | Injection | yes | no |
+| 27 | Error Handling | 1 | Security Misconfiguration | yes | no |
+| 28 | Expired Coupon | 4 | Improper Input Validation | yes | no |
+| 29 | Extra Language | 5 | Broken Anti Automation | yes | no |
+| 30 | Five-Star Feedback | 2 | Broken Access Control | yes | no |
+| 31 | Forged Coupon | 6 | Cryptographic Issues | yes | no |
+| 32 | Forged Feedback | 3 | Broken Access Control | yes | no |
+| 33 | Forged Review | 3 | Broken Access Control | yes | yes/status 0 |
+| 34 | Forged Signed JWT | 6 | Vulnerable Components | yes | no |
+| 35 | Forgotten Developer Backup | 4 | Sensitive Data Exposure | yes | no |
+| 36 | Forgotten Sales Backup | 4 | Sensitive Data Exposure | yes | no |
+| 37 | Frontend Typosquatting | 5 | Vulnerable Components | yes | no |
+| 38 | GDPR Data Erasure | 3 | Broken Authentication | yes | no |
+| 39 | GDPR Data Theft | 4 | Sensitive Data Exposure | yes | no |
+| 40 | HTTP-Header XSS | 4 | XSS | yes | no |
+| 41 | Imaginary Challenge | 6 | Cryptographic Issues | yes | no |
+| 42 | Leaked Access Logs | 5 | Observability Failures | yes | no |
+| 43 | Leaked Unsafe Product | 4 | Sensitive Data Exposure | yes | no |
+| 44 | Legacy Typosquatting | 4 | Vulnerable Components | yes | no |
+| 45 | Login Admin | 2 | Injection | yes | yes/status 0 |
+| 46 | Login Amy | 3 | Sensitive Data Exposure | yes | no |
+| 47 | Login Bender | 3 | Injection | yes | yes/status 0 |
+| 48 | Login Bjoern | 4 | Broken Authentication | yes | no |
+| 49 | Login Jim | 3 | Injection | yes | yes/status 0 |
+| 50 | Login MC SafeSearch | 2 | Sensitive Data Exposure | yes | no |
+| 51 | Login Support Team | 6 | Security Misconfiguration | yes | no |
+| 52 | Manipulate Basket | 3 | Broken Access Control | yes | no |
+| 53 | Misplaced Signature File | 4 | Observability Failures | yes | no |
+| 54 | Multiple Likes | 6 | Broken Anti Automation | yes | no |
+| 55 | Nested Easter Egg | 4 | Cryptographic Issues | yes | no |
+| 56 | NoSQL DoS | 4 | Injection | yes | no |
+| 57 | NoSQL Exfiltration | 5 | Injection | yes | no |
+| 58 | NoSQL Manipulation | 4 | Injection | yes | yes/status 0 |
+| 59 | Outdated Allowlist | 1 | Unvalidated Redirects | yes | yes/status 0 |
+| 60 | Password Strength | 2 | Broken Authentication | yes | yes/status 0 |
+| 61 | Payback Time | 3 | Improper Input Validation | yes | no |
+| 62 | Premium Paywall | 6 | Cryptographic Issues | yes | no |
+| 63 | Privacy Policy | 1 | Miscellaneous | yes | no |
+| 64 | Privacy Policy Inspection | 3 | Security through Obscurity | yes | no |
+| 65 | Product Tampering | 3 | Broken Access Control | yes | yes/status 0 |
+| 66 | Reflected XSS | 2 | XSS | yes | no |
+| 67 | Repetitive Registration | 1 | Improper Input Validation | yes | no |
+| 68 | Reset Bender's Password | 4 | Broken Authentication | yes | yes/status 0 |
+| 69 | Reset Bjoern's Password | 5 | Broken Authentication | yes | yes/status 0 |
+| 70 | Reset Jim's Password | 3 | Broken Authentication | yes | yes/status 0 |
+| 71 | Reset Morty's Password | 5 | Broken Anti Automation | yes | yes/status 0 |
+| 72 | Retrieve Blueprint | 5 | Sensitive Data Exposure | yes | no |
+| 73 | SSRF | 6 | Broken Access Control | yes | no |
+| 74 | SSTi | 6 | Injection | yes | no |
+| 75 | Score Board | 1 | Miscellaneous | yes | yes/status 2 |
+| 76 | Security Policy | 2 | Miscellaneous | yes | no |
+| 77 | Server-side XSS Protection | 4 | XSS | yes | no |
+| 78 | Steganography | 4 | Security through Obscurity | yes | no |
+| 79 | Successful RCE DoS | 6 | Insecure Deserialization | yes | no |
+| 80 | Supply Chain Attack | 5 | Vulnerable Components | yes | no |
+| 81 | Two Factor Authentication | 5 | Broken Authentication | yes | no |
+| 82 | Unsigned JWT | 5 | Vulnerable Components | yes | no |
+| 83 | Upload Size | 3 | Improper Input Validation | yes | no |
+| 84 | Upload Type | 3 | Improper Input Validation | yes | no |
+| 85 | User Credentials | 4 | Injection | yes | yes/status 0 |
+| 86 | Video XSS | 6 | XSS | yes | no |
+| 87 | View Basket | 2 | Broken Access Control | yes | no |
+| 88 | Vulnerable Library | 4 | Vulnerable Components | yes | no |
+| 89 | Weird Crypto | 2 | Cryptographic Issues | yes | no |
+| 90 | Allowlist Bypass | 4 | Unvalidated Redirects | yes | yes/status 0 |
+| 91 | XXE Data Access | 3 | XXE | yes | no |
+| 92 | XXE DoS | 5 | XXE | yes | no |
+| 93 | Memory Bomb | 5 | Insecure Deserialization | yes | no |
+| 94 | Zero Stars | 1 | Improper Input Validation | yes | no |
+| 95 | Missing Encoding | 1 | Improper Input Validation | yes | no |
+| 96 | Cross-Site Imaging | 5 | Security Misconfiguration | yes | no |
+| 97 | Exposed Metrics | 1 | Observability Failures | yes | yes/status 2 |
+| 98 | Deluxe Fraud | 3 | Improper Input Validation | yes | no |
+| 99 | CSRF | 3 | Broken Access Control | yes | no |
+| 100 | Bonus Payload | 1 | XSS | yes | yes/status 2 |
+| 101 | Reset Uvogin's Password | 4 | Sensitive Data Exposure | yes | yes/status 0 |
+| 102 | Meta Geo Stalking | 2 | Sensitive Data Exposure | yes | no |
+| 103 | Visual Geo Stalking | 2 | Sensitive Data Exposure | yes | no |
+| 104 | Kill Chatbot | 5 | Vulnerable Components | yes | no |
+| 105 | Poison Null Byte | 4 | Improper Input Validation | yes | no |
+| 106 | Bully Chatbot | 1 | Miscellaneous | yes | no |
+| 107 | Local File Read | 5 | Vulnerable Components | yes | no |
+| 108 | Mass Dispel | 1 | Miscellaneous | yes | no |
+| 109 | Security Advisory | 3 | Miscellaneous | yes | no |
+| 110 | Exposed credentials | 2 | Sensitive Data Exposure | yes | no |
+| 111 | Leaked API Key | 5 | Sensitive Data Exposure | yes | no |
+
 ## Rough Notes
 
 - Unknown Angular routes return HTTP `200` with the app shell, so directory brute forcing needs response-length filtering.
